@@ -1,1 +1,1 @@
-sources = files('iterator.cpp', 'vector.cpp', 'algorithm.cpp', 'main.cpp')
+sources = files('iterator.cpp', 'algorithm.cpp', 'main.cpp')
