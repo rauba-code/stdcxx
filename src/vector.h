@@ -15,7 +15,7 @@ public:
 
   vector();
   ~vector();
-  void push_back(T &&);
+  void push_back(const T &);
 
   iterator begin();
   iterator end();
@@ -67,7 +67,7 @@ template <class T> void vector<T>::_grow(size_t n) {
   this->_size += n;
 }
 
-template <class T> void vector<T>::push_back(T &&a) {
+template <class T> void vector<T>::push_back(const T &a) {
   this->_grow(1);
   this->_ptr[this->_size - 1] = a;
 }
