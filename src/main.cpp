@@ -1,6 +1,11 @@
+#define PRINT
+
+#include "unordered_map.h"
 #include "algorithm.h"
+#include "functional.h"
 #include "iterator.h"
-#include "src/set.h"
+#include "set.h"
+#include "string.h"
 #include "vector.h"
 #include <stdio.h>
 
@@ -36,6 +41,14 @@ void test_vector() {
 }
 
 int main() {
+  vector<string> duomenys;
+  duomenys.push_back("lorem ipsum dolor sit amet");
+  duomenys.push_back("consectetur adipiscing elit");
+  duomenys.push_back("sed do eiusmod tempor");
+  for (const string &i : duomenys) {
+    _print<string>{}(i);
+    printf(" %d\n", static_cast<int>(hash<string>{}(i)));
+  }
   const int A[] = {2,  3,  5,  7,  11, 13, 17, 19, 23, 29, 31, 37, 41,
                    43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97};
   for (int i = 0; i < 100; i++) {
@@ -48,8 +61,14 @@ int main() {
     x %= 23;
     s.insert(A[x - 1]);
     for (int i : s) {
-      printf("%d ", i);
+      printf("%d ", (int)hash<int>{}(i));
     }
     printf("\n");
   } while (x != 1);
+  unordered_map<string, size_t> umap;
+  for (const string &x: duomenys) {
+      umap[x] = (int)hash<string>{}(x);
+  }
+  _print<unordered_map<string, size_t>>{}(umap);
+  putc('\n', stdout);
 }

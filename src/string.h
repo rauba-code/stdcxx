@@ -1,10 +1,12 @@
 #ifndef __SRC_STRING_H
 #define __SRC_STRING_H
 
+#define PRINT
+
 #include "cstddef.h"
 #include "cstring.h"
-#include "iterator.h"
 #include "functional.h"
+#include "iterator.h"
 
 struct string {
 public:
@@ -26,18 +28,18 @@ public:
     size_t cap = 8;
     char *arr = new char[cap];
     while (first != last) {
-        if (i >= cap) {
-            char *narr = new char[cap * 2];
-            for (size_t j = 0; j < i; j++) {
-                narr[j] = arr[i];
-            }
-            delete[] arr;
-            arr = narr;
-            cap *= 2;
+      if (i >= cap) {
+        char *narr = new char[cap * 2];
+        for (size_t j = 0; j < i; j++) {
+          narr[j] = arr[i];
         }
-        arr[i] = *first;
-        i++;
-        next(first);
+        delete[] arr;
+        arr = narr;
+        cap *= 2;
+      }
+      arr[i] = *first;
+      i++;
+      next(first);
     }
     this->_ptr = arr;
     this->_sz = i;
@@ -45,13 +47,20 @@ public:
   }
   string(const char *);
   string(const char *, size_type);
-  string(const string&);
-  string(const string&, size_type);
-  string(const string&, size_type, size_type);
+  string(const string &);
+  string(const string &, size_type);
+  string(const string &, size_type, size_type);
   ~string();
 
-  iterator begin();
-  iterator end();
+  reference operator[](size_type x) const;
+
+  iterator begin() const;
+  iterator end() const;
+
+  const_pointer c_str() const;
+
+  size_type size() const;
+  size_type length() const;
 
 private:
   value_type *_ptr;
@@ -59,17 +68,35 @@ private:
   bool _is_owner;
 };
 
+bool operator==(const string &a, const string &b);
+
 template <> struct hash<string> {
-    size_t operator()(string v) {
-        // very rudimentary hash
-        size_t h = 7919;
-        for (char c : v) {
-            h += 97;
-            h += c * 7907;
-            h %= 1000000009;
-        }
-        return h;
+  size_t operator()(string v) {
+    // very rudimentary hash
+    size_t h = 7919;
+    for (char c : v) {
+      h += 97;
+      h += c * 7907;
+      h %= 1000000009;
     }
+    return h;
+  }
 };
+
+#ifdef PRINT
+#include "debug.h"
+#include <stdio.h>
+template <> struct _print<string> {
+  void operator()(const string &x, int margin = 0) {
+    (void)(margin);
+    putc('\"', stdout);
+    for (char c : x) {
+      putc(c, stdout);
+    }
+    putc('\"', stdout);
+  }
+};
+
+#endif
 
 #endif

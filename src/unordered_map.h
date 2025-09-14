@@ -1,0 +1,174 @@
+#ifndef __SRC_UNORDERED_MAP_H
+#define __SRC_UNORDERED_MAP_H
+#include "functional.h"
+#include "utility.h"
+#include <sys/types.h> // size_t
+#define PRINT
+
+#ifdef PRINT
+#include <stdio.h>
+#endif
+
+#ifndef BITS_HASH
+#define BITS_HASH 24
+#endif
+#ifndef BITS_BRANCH
+#define BITS_BRANCH 4
+#endif
+
+template <class Key, class T> class unordered_map_link_node;
+template <class Key, class T> class unordered_map_branch_node;
+
+template <class Key, class T> class unordered_map {
+public:
+  typedef Key key_type;
+  typedef T mapped_type;
+  typedef pair<const Key, T> value_type;
+  typedef value_type &reference;
+  typedef const value_type &const_reference;
+  typedef value_type *pointer;
+  typedef const value_type *const_pointer;
+
+  unordered_map() { this->tree = unordered_map_branch_node<Key, T>(); }
+
+  ~unordered_map() {};
+
+  T &operator[](const Key &key) {
+    // const int SIZE_STACK = (BITS_HASH + BITS_BRANCH - 1) / BITS_BRANCH;
+    unordered_map_branch_node<Key, T> *node = &this->tree;
+    size_t h = hash<Key>{}(key);
+    h &= (1 << BITS_HASH) - 1;
+    for (int i = BITS_BRANCH; i < BITS_HASH; i += BITS_BRANCH) {
+      unordered_map_branch_node<Key, T> *(&child) =
+          node->branches[h & ((1 << BITS_BRANCH) - 1)];
+      if (child == nullptr) {
+        child = new unordered_map_branch_node<Key, T>();
+      }
+      node = child;
+      h >>= BITS_BRANCH;
+    }
+    if (node->leaves[h] == nullptr) {
+      node->leaves[h] = new unordered_map_link_node<Key, T>{nullptr, {key}};
+      return node->leaves[h]->child.second;
+    }
+    unordered_map_link_node<Key, T> *link = node->leaves[h];
+    while (true) {
+      if (link->child.first == key) {
+        return link->child.second;
+      }
+      if (link->next == nullptr) {
+        link->next = new unordered_map_link_node<Key, T>{nullptr, {key}};
+        return link->next->child.second;
+      }
+    }
+  }
+
+  // protected:
+  unordered_map_branch_node<Key, T> tree;
+};
+
+template <class Key, class T> class unordered_map_branch_node {
+public:
+  // If true, this->leaves are null and this->branches are non-null;
+  // If false, this->leaves are non-null and this->branches are null.
+  unordered_map_branch_node<Key, T> *branches[1 << BITS_BRANCH];
+  unordered_map_link_node<Key, T> *leaves[1 << BITS_BRANCH];
+
+  unordered_map_branch_node() {
+    for (int i = 0; i < (1 << BITS_BRANCH); i++) {
+      leaves[i] = nullptr;
+      branches[i] = nullptr;
+    }
+  }
+
+  ~unordered_map_branch_node() {
+    for (int i = 0; i < (1 << BITS_BRANCH); i++) {
+      if (branches[i]) {
+        delete branches[i];
+      }
+      if (leaves[i]) {
+        delete leaves[i];
+      }
+    }
+  }
+};
+
+template <class Key, class T> class unordered_map_link_node {
+public:
+  // If true, this->next is null;
+  // If false, this->next is non-null.
+  unordered_map_link_node<Key, T> *next;
+  pair<Key, T> child;
+};
+
+// satisfies LegacyForwardIterator
+template <class Key, class T> class unordered_map_iterator {
+public:
+};
+
+#ifdef PRINT
+#include "debug.h"
+template <class Key, class T> struct _print<unordered_map<Key, T>> {
+  void operator()(const unordered_map<Key, T> &x, int margin = 0) {
+    char *m = new char[margin + 1];
+    for (int i = 0; i < margin; i++) {
+      m[i] = ' ';
+    }
+    m[margin] = '\0';
+    printf("{\n");
+    printf("%s  .tree = ", m);
+    _print<unordered_map_branch_node<Key, T>>{}(x.tree, margin + 2);
+    putc('\n', stdout);
+    printf("%s}", m);
+    delete[] m;
+  }
+};
+
+template <class Key, class T> struct _print<unordered_map_branch_node<Key, T>> {
+  void operator()(const unordered_map_branch_node<Key, T> &x, int margin = 0) {
+    char *m = new char[margin + 1];
+    for (int i = 0; i < margin; i++) {
+      m[i] = ' ';
+    }
+    m[margin] = '\0';
+    printf("{\n");
+    printf("%s  .branches = {\n", m);
+    for (int i = 0; i < (1 << BITS_BRANCH); i++) {
+      printf("%s    [%d] = ", m, i);
+      _print<unordered_map_branch_node<Key, T> *>{}(x.branches[i], margin + 4);
+      printf((i + 1 < (1 << BITS_BRANCH)) ? ",\n" : "\n");
+    }
+    printf("%s  },\n", m);
+    printf("%s  .leaves = {\n", m);
+    for (int i = 0; i < (1 << BITS_BRANCH); i++) {
+      printf("%s    [%d] = ", m, i);
+      _print<unordered_map_link_node<Key, T> *>{}(x.leaves[i], margin + 4);
+      printf((i + 1 < (1 << BITS_BRANCH)) ? ",\n" : "\n");
+    }
+    printf("%s  }\n", m);
+    printf("%s}", m);
+    delete[] m;
+  }
+};
+
+template <class Key, class T> struct _print<unordered_map_link_node<Key, T>> {
+  void operator()(const unordered_map_link_node<Key, T> &x, int margin = 0) {
+    char *m = new char[margin + 1];
+    for (int i = 0; i < margin; i++) {
+      m[i] = ' ';
+    }
+    m[margin] = '\0';
+    printf("{\n");
+    printf("%s  .next = ", m);
+    _print<unordered_map_link_node<Key, T> *>{}(x.next, margin + 2);
+    printf(",\n");
+    printf("%s  .child = ", m);
+    _print<pair<Key, T>>{}(x.child, margin + 2);
+    printf("\n");
+    printf("%s}", m);
+    delete[] m;
+  }
+};
+#endif
+
+#endif
