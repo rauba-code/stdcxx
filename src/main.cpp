@@ -67,17 +67,17 @@ int main() {
   } while (x != 1);
   unordered_map<string, size_t> umap;
   for (const string &x: duomenys) {
-      umap[x] = (int)hash<string>{}(x);
+      umap.insert({x, hash<string>{}(x)});
   }
-  //_print<unordered_map<string, size_t>>{}(umap);
-  //putc('\n', stdout);
+  _print<unordered_map<string, size_t>>{}(umap);
+  putc('\n', stdout);
   unordered_map<size_t, size_t> umap2;
   umap2[31415] = hash<size_t>{}(31415);
   umap2[31415 + (1 << BITS_HASH)] = hash<size_t>{}(31415);
   umap2[31415] = 7;
   umap2[31415 + (1 << BITS_HASH)] = 14;
-  _print<unordered_map<size_t, size_t>>{}(umap2);
-  putc('\n', stdout);
+  //_print<unordered_map<size_t, size_t>>{}(umap2);
+  //putc('\n', stdout);
   for (auto i : umap2) {
       _print<pair<size_t, size_t>>{}(i);
       putc('\n', stdout);
@@ -89,6 +89,8 @@ int main() {
       putc('\n', stdout);
   }
   printf("size: %zu\n", umap.size());
+  _print<pair<string, size_t>>{}(*umap.find("lorem ipsum dolor sit amet"));
+  putc('\n', stdout);
   umap.clear();
   _print<unordered_map<string, size_t>>{}(umap);
   putc('\n', stdout);

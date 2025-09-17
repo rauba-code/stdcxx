@@ -222,7 +222,7 @@ public:
     }
     for (size_t i = 1; i < STACK_SIZE; i++) {
       unordered_map_branch_node<Key, T> *&child =
-          bstack[i - 1]->branches[istack[i]];
+          bstack[i - 1]->branches[istack[i - 1]];
       if (child == nullptr) {
         child = new unordered_map_branch_node<Key, T>();
       }
@@ -232,7 +232,7 @@ public:
     unordered_map_branch_node<Key, T> *blast = bstack[STACK_SIZE - 1];
     if (blast->leaves[ilast] == nullptr) {
       blast->leaves[ilast] =
-          new unordered_map_link_node<Key, T>{{kv.first, T{}}, nullptr};
+          new unordered_map_link_node<Key, T>{{kv.first, kv.second}, nullptr};
       for (unordered_map_branch_node<Key, T> *branch : bstack) {
         branch->size++;
       }
@@ -245,7 +245,7 @@ public:
       }
       if (link->next == nullptr) {
         link->next =
-            new unordered_map_link_node<Key, T>{{kv.first, T()}, nullptr};
+            new unordered_map_link_node<Key, T>{{kv.first, kv.second}, nullptr};
         for (unordered_map_branch_node<Key, T> *branch : bstack) {
           branch->size++;
         }
@@ -253,6 +253,54 @@ public:
       }
       link = link->next;
     }
+  }
+
+  iterator find(const Key &key) {
+    unordered_map_branch_node<Key, T> *bstack[STACK_SIZE];
+    int istack[STACK_SIZE];
+    bstack[0] = &this->tree;
+
+    {
+      size_t h = hash<Key>{}(key);
+      h &= (1 << BITS_HASH) - 1;
+      for (int i = BITS_BRANCH; i < BITS_HASH; i += BITS_BRANCH) {
+        istack[(i / BITS_BRANCH) - 1] = h & ((1 << BITS_BRANCH) - 1);
+        h >>= BITS_BRANCH;
+      }
+      istack[STACK_SIZE - 1] = h;
+    }
+    for (size_t i = 1; i < STACK_SIZE; i++) {
+      unordered_map_branch_node<Key, T> *&child =
+          bstack[i - 1]->branches[istack[i - 1]];
+      if (child == nullptr) {
+        return this->end();
+      }
+      bstack[i] = child;
+    }
+    int ilast = istack[STACK_SIZE - 1];
+    unordered_map_branch_node<Key, T> *blast = bstack[STACK_SIZE - 1];
+    if (blast->leaves[ilast] == nullptr) {
+      return this->end();
+    }
+    unordered_map_link_node<Key, T> *link = blast->leaves[ilast];
+    while (true) {
+      if (link->child.first == key) {
+        return iterator(bstack, istack, link);
+      }
+      if (link->next == nullptr) {
+        return this->end();
+      }
+      link = link->next;
+    }
+  }
+
+  T &at(const Key &key) {
+    iterator retv = this->find(key);
+    if (retv == this->end()) {
+      error(1, 0, "No such element (out_of_range)");
+      abort();
+    }
+    return (*retv).first;
   }
 
   size_t size() { return this->tree.size; }

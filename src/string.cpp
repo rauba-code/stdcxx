@@ -49,10 +49,11 @@ typename string::reference string::operator[](string::size_type i) const {
 }
 
 bool operator==(const string &a, const string &b) {
-    if (a.length() != b.length()) {
+    size_t len = a.length();
+    if (len != b.length()) {
         return false;
     }
-    for (size_t i = 0; i < a.length(); i++) {
+    for (size_t i = 0; i < len; i++) {
         if (a[i] != b[i]) {
             return false;
         }
