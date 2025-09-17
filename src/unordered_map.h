@@ -12,7 +12,7 @@
 #endif
 
 #ifndef BITS_HASH
-#define BITS_HASH 24
+#define BITS_HASH 20
 #endif
 #ifndef BITS_BRANCH
 #define BITS_BRANCH 4
@@ -33,6 +33,15 @@ public:
   unordered_map_iterator() {
     this->slen = 0;
     this->link = nullptr;
+  }
+
+  unordered_map_iterator(const unordered_map_iterator<Key, T> &x) {
+    this->slen = x.slen;
+    this->link = x.link;
+    for (size_t i = 0; i < STACK_SIZE; i++) {
+      this->bstack[i] = x.bstack[i];
+      this->istack[i] = x.istack[i];
+    }
   }
 
   unordered_map_iterator(unordered_map_branch_node<Key, T> *top) {
@@ -305,20 +314,19 @@ public:
 
   iterator erase(iterator pos) {
     if (!pos.link) {
-      error(1, 0, "unordered_map::erase(): argument error");
+      error(1, 0, "unordered_map::erase(): Argument error");
       abort();
     }
     iterator eit = pos++;
-    // unfinished
     unordered_map_link_node<Key, T> *link =
         eit.bstack[STACK_SIZE - 1]->leaves[eit.istack[STACK_SIZE - 1]];
-    if (link == pos.link) {
+    if (link == eit.link) {
       unordered_map_link_node<Key, T> *tail = link->next;
       delete link;
       eit.bstack[STACK_SIZE - 1]->leaves[eit.istack[STACK_SIZE - 1]] = tail;
     } else {
       while (true) {
-        if (link->next == pos.link) {
+        if (link->next == eit.link) {
           unordered_map_link_node<Key, T> *tail = link->next->next;
           delete link->next;
           link->next = tail;
@@ -334,6 +342,7 @@ public:
         eit.bstack[i - 1]->branches[eit.istack[i - 1]] = nullptr;
       }
     }
+    eit.bstack[0]->size--;
     return pos;
   }
 
