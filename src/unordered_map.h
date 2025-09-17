@@ -4,6 +4,7 @@
 #include "iterator.h"
 #include "utility.h"
 #include <error.h>
+#include <stdlib.h>
 #include <sys/types.h> // size_t
 
 #ifdef PRINT
@@ -16,6 +17,8 @@
 #ifndef BITS_BRANCH
 #define BITS_BRANCH 4
 #endif
+
+const size_t STACK_SIZE = (BITS_HASH + BITS_BRANCH - 1) / BITS_BRANCH;
 
 template <class Key, class T> class unordered_map_link_node;
 template <class Key, class T> class unordered_map_branch_node;
@@ -40,11 +43,23 @@ public:
     this->_next();
   }
 
+  unordered_map_iterator(unordered_map_branch_node<Key, T> *bstack[STACK_SIZE],
+                         int istack[STACK_SIZE],
+                         unordered_map_link_node<Key, T> *link) {
+    this->slen = STACK_SIZE;
+    for (size_t i = 0; i < STACK_SIZE; i++) {
+      this->bstack[i] = bstack[i];
+      this->istack[i] = istack[i];
+    }
+    this->link = link;
+  }
+
   reference operator*() {
     if (this->link) {
       return this->link->child;
     } else {
       error(1, 0, "Attempted dereference of a null-iterator");
+      abort();
     }
   }
 
@@ -61,14 +76,14 @@ public:
     return x;
   }
 
-//private:
+  // private:
   void _next() {
     if (this->link && this->link->next) {
       this->link = this->link->next;
       return;
     }
     while (true) {
-      if (this->slen < ((BITS_HASH + BITS_BRANCH - 1) / BITS_BRANCH)) {
+      if (this->slen < STACK_SIZE) {
         bool is_any = false;
         for (int i = this->istack[this->slen - 1]; i < (1 << BITS_BRANCH);
              i++) {
@@ -103,70 +118,10 @@ public:
       }
     }
   }
-  unordered_map_branch_node<Key, T>
-      *bstack[(BITS_HASH + BITS_BRANCH - 1) / BITS_BRANCH];
-  int istack[(BITS_HASH + BITS_BRANCH - 1) / BITS_BRANCH];
-  int slen;
+  unordered_map_branch_node<Key, T> *bstack[STACK_SIZE];
+  int istack[STACK_SIZE];
+  size_t slen;
   unordered_map_link_node<Key, T> *link;
-};
-
-template <class Key, class T> class unordered_map {
-public:
-  typedef Key key_type;
-  typedef T mapped_type;
-  typedef pair<const Key, T> value_type;
-  typedef value_type &reference;
-  typedef const value_type &const_reference;
-  typedef value_type *pointer;
-  typedef const value_type *const_pointer;
-  typedef unordered_map_iterator<Key, T> iterator;
-  
-
-  unordered_map() { this->tree = unordered_map_branch_node<Key, T>(); }
-
-  ~unordered_map() {};
-
-  iterator begin() {
-      return iterator(&(this->tree));
-  }
-
-  iterator end() {
-      return iterator();
-  }
-
-  T &operator[](const Key &key) {
-    // const int SIZE_STACK = (BITS_HASH + BITS_BRANCH - 1) / BITS_BRANCH;
-    unordered_map_branch_node<Key, T> *node = &this->tree;
-    size_t h = hash<Key>{}(key);
-    h &= (1 << BITS_HASH) - 1;
-    for (int i = BITS_BRANCH; i < BITS_HASH; i += BITS_BRANCH) {
-      unordered_map_branch_node<Key, T> *(&child) =
-          node->branches[h & ((1 << BITS_BRANCH) - 1)];
-      if (child == nullptr) {
-        child = new unordered_map_branch_node<Key, T>();
-      }
-      node = child;
-      h >>= BITS_BRANCH;
-    }
-    if (node->leaves[h] == nullptr) {
-      node->leaves[h] = new unordered_map_link_node<Key, T>{{key}, nullptr};
-      return node->leaves[h]->child.second;
-    }
-    unordered_map_link_node<Key, T> *link = node->leaves[h];
-    while (true) {
-      if (link->child.first == key) {
-        return link->child.second;
-      }
-      if (link->next == nullptr) {
-        link->next = new unordered_map_link_node<Key, T>{{key}, nullptr};
-        return link->next->child.second;
-      }
-      link = link->next;
-    }
-  }
-
-  // private:
-  unordered_map_branch_node<Key, T> tree;
 };
 
 template <class Key, class T> class unordered_map_branch_node {
@@ -175,22 +130,29 @@ public:
   // If false, this->leaves are non-null and this->branches are null.
   unordered_map_branch_node<Key, T> *branches[1 << BITS_BRANCH];
   unordered_map_link_node<Key, T> *leaves[1 << BITS_BRANCH];
+  size_t size;
 
   unordered_map_branch_node() {
     for (int i = 0; i < (1 << BITS_BRANCH); i++) {
-      leaves[i] = nullptr;
-      branches[i] = nullptr;
+      this->leaves[i] = nullptr;
+      this->branches[i] = nullptr;
+      this->size = 0;
     }
   }
 
-  ~unordered_map_branch_node() {
+  ~unordered_map_branch_node() { this->clear(); }
+
+  void clear() {
     for (int i = 0; i < (1 << BITS_BRANCH); i++) {
-      if (branches[i]) {
-        delete branches[i];
+      if (this->branches[i]) {
+        delete this->branches[i];
+        this->branches[i] = nullptr;
       }
       if (leaves[i]) {
-        delete leaves[i];
+        delete this->leaves[i];
+        this->leaves[i] = nullptr;
       }
+      this->size = 0;
     }
   }
 };
@@ -202,7 +164,6 @@ public:
   // If false, this->next is non-null.
   unordered_map_link_node<Key, T> *next;
 };
-
 
 template <class Key, class T>
 bool operator==(unordered_map_iterator<Key, T> lhs,
@@ -221,6 +182,88 @@ bool operator!=(unordered_map_iterator<Key, T> lhs,
   }
   return lhs.link != rhs.link;
 }
+
+template <class Key, class T> class unordered_map {
+public:
+  typedef Key key_type;
+  typedef T mapped_type;
+  typedef pair<const Key, T> value_type;
+  typedef value_type &reference;
+  typedef const value_type &const_reference;
+  typedef value_type *pointer;
+  typedef const value_type *const_pointer;
+  typedef unordered_map_iterator<Key, T> iterator;
+
+  unordered_map() { this->tree = unordered_map_branch_node<Key, T>(); }
+
+  ~unordered_map() {};
+
+  iterator begin() { return iterator(&(this->tree)); }
+
+  iterator end() { return iterator(); }
+
+  T &operator[](const Key &key) {
+    return this->insert({key, T{}}).first.operator*().second;
+  }
+
+  pair<iterator, bool> insert(const value_type &kv) {
+    unordered_map_branch_node<Key, T> *bstack[STACK_SIZE];
+    int istack[STACK_SIZE];
+    bstack[0] = &this->tree;
+
+    {
+      size_t h = hash<Key>{}(kv.first);
+      h &= (1 << BITS_HASH) - 1;
+      for (int i = BITS_BRANCH; i < BITS_HASH; i += BITS_BRANCH) {
+        istack[(i / BITS_BRANCH) - 1] = h & ((1 << BITS_BRANCH) - 1);
+        h >>= BITS_BRANCH;
+      }
+      istack[STACK_SIZE - 1] = h;
+    }
+    for (size_t i = 1; i < STACK_SIZE; i++) {
+      unordered_map_branch_node<Key, T> *&child =
+          bstack[i - 1]->branches[istack[i]];
+      if (child == nullptr) {
+        child = new unordered_map_branch_node<Key, T>();
+      }
+      bstack[i] = child;
+    }
+    int ilast = istack[STACK_SIZE - 1];
+    unordered_map_branch_node<Key, T> *blast = bstack[STACK_SIZE - 1];
+    if (blast->leaves[ilast] == nullptr) {
+      blast->leaves[ilast] =
+          new unordered_map_link_node<Key, T>{{kv.first, T{}}, nullptr};
+      for (unordered_map_branch_node<Key, T> *branch : bstack) {
+        branch->size++;
+      }
+      return {iterator(bstack, istack, blast->leaves[ilast]), true};
+    }
+    unordered_map_link_node<Key, T> *link = blast->leaves[ilast];
+    while (true) {
+      if (link->child.first == kv.first) {
+        return {iterator(bstack, istack, link), false};
+      }
+      if (link->next == nullptr) {
+        link->next =
+            new unordered_map_link_node<Key, T>{{kv.first, T()}, nullptr};
+        for (unordered_map_branch_node<Key, T> *branch : bstack) {
+          branch->size++;
+        }
+        return {iterator(bstack, istack, link->next), true};
+      }
+      link = link->next;
+    }
+  }
+
+  size_t size() { return this->tree.size; }
+
+  bool empty() { return this->tree.size == 0; }
+
+  void clear() { this->tree.clear(); }
+
+  // private:
+  unordered_map_branch_node<Key, T> tree;
+};
 
 #ifdef PRINT
 #include "debug.h"

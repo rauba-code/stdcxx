@@ -82,9 +82,15 @@ int main() {
       _print<pair<size_t, size_t>>{}(i);
       putc('\n', stdout);
   }
+  printf("size: %zu\n", umap2.size());
   putc('\n', stdout);
   for (auto i : umap) {
       _print<pair<string, size_t>>{}(i);
       putc('\n', stdout);
   }
+  printf("size: %zu\n", umap.size());
+  umap.clear();
+  _print<unordered_map<string, size_t>>{}(umap);
+  putc('\n', stdout);
+  printf("size: %zu\n", umap.size());
 }
