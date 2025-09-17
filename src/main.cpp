@@ -76,6 +76,7 @@ int main() {
   umap2[31415 + (1 << BITS_HASH)] = hash<size_t>{}(31415);
   umap2[31415] = 7;
   umap2[31415 + (1 << BITS_HASH)] = 14;
+  umap.erase(umap.find("consectetur adipiscing elit"));
   //_print<unordered_map<size_t, size_t>>{}(umap2);
   //putc('\n', stdout);
   for (auto i : umap2) {

@@ -297,10 +297,44 @@ public:
   T &at(const Key &key) {
     iterator retv = this->find(key);
     if (retv == this->end()) {
-      error(1, 0, "No such element (out_of_range)");
+      error(1, 0, "unordered_map::at(): No such element (out_of_range)");
       abort();
     }
     return (*retv).first;
+  }
+
+  iterator erase(iterator pos) {
+    if (!pos.link) {
+      error(1, 0, "unordered_map::erase(): argument error");
+      abort();
+    }
+    iterator eit = pos++;
+    // unfinished
+    unordered_map_link_node<Key, T> *link =
+        eit.bstack[STACK_SIZE - 1]->leaves[eit.istack[STACK_SIZE - 1]];
+    if (link == pos.link) {
+      unordered_map_link_node<Key, T> *tail = link->next;
+      delete link;
+      eit.bstack[STACK_SIZE - 1]->leaves[eit.istack[STACK_SIZE - 1]] = tail;
+    } else {
+      while (true) {
+        if (link->next == pos.link) {
+          unordered_map_link_node<Key, T> *tail = link->next->next;
+          delete link->next;
+          link->next = tail;
+          break;
+        }
+        link = link->next;
+      }
+    }
+    for (int i = STACK_SIZE - 1; i > 0; i--) {
+      eit.bstack[i]->size--;
+      if (i > 0 && eit.bstack[i]->size == 0) {
+        delete eit.bstack[i - 1]->branches[eit.istack[i - 1]];
+        eit.bstack[i - 1]->branches[eit.istack[i - 1]] = nullptr;
+      }
+    }
+    return pos;
   }
 
   size_t size() { return this->tree.size; }
