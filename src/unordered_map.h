@@ -145,8 +145,8 @@ public:
     for (int i = 0; i < (1 << BITS_BRANCH); i++) {
       this->leaves[i] = nullptr;
       this->branches[i] = nullptr;
-      this->size = 0;
     }
+    this->size = 0;
   }
 
   ~unordered_map_branch_node() { this->clear(); }
@@ -309,7 +309,7 @@ public:
       error(1, 0, "unordered_map::at(): No such element (out_of_range)");
       abort();
     }
-    return (*retv).first;
+    return (*retv).second;
   }
 
   iterator erase(iterator pos) {
