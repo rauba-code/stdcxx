@@ -1,0 +1,410 @@
+#ifndef __SRC_UNORDERED_SET_H
+#define __SRC_UNORDERED_SET_H
+#include "functional.h"
+#include "iterator.h"
+#include "utility.h"
+#include <error.h>
+#include <stdlib.h>
+#include <sys/types.h> // size_t
+
+#ifdef PRINT
+#include <stdio.h>
+#endif
+
+#ifndef BITS_HASH
+#define BITS_HASH 20
+#endif
+#ifndef BITS_BRANCH
+#define BITS_BRANCH 4
+#endif
+
+const size_t STACK_SIZE = (BITS_HASH + BITS_BRANCH - 1) / BITS_BRANCH;
+
+template <class Key> class unordered_set_link_node;
+template <class Key> class unordered_set_branch_node;
+// satisfies LegacyForwardIterator
+template <class Key> class unordered_set_iterator {
+public:
+  typedef Key value_type;
+  typedef value_type *pointer;
+  typedef value_type &reference;
+  typedef forward_iterator_tag iterator_category;
+
+  unordered_set_iterator() {
+    this->slen = 0;
+    this->link = nullptr;
+  }
+
+  unordered_set_iterator(const unordered_set_iterator<Key> &x) {
+    this->slen = x.slen;
+    this->link = x.link;
+    for (size_t i = 0; i < STACK_SIZE; i++) {
+      this->bstack[i] = x.bstack[i];
+      this->istack[i] = x.istack[i];
+    }
+  }
+
+  unordered_set_iterator(unordered_set_branch_node<Key> *top) {
+    this->slen = 1;
+    this->bstack[0] = top;
+    this->istack[0] = 0;
+    this->link = nullptr;
+    this->_next();
+  }
+
+  unordered_set_iterator(unordered_set_branch_node<Key> *bstack[STACK_SIZE],
+                         int istack[STACK_SIZE],
+                         unordered_set_link_node<Key> *link) {
+    this->slen = STACK_SIZE;
+    for (size_t i = 0; i < STACK_SIZE; i++) {
+      this->bstack[i] = bstack[i];
+      this->istack[i] = istack[i];
+    }
+    this->link = link;
+  }
+
+  reference operator*() {
+    if (this->link) {
+      return this->link->child;
+    } else {
+      error(1, 0, "Attempted dereference of a null-iterator");
+      abort();
+    }
+  }
+
+  unordered_set_iterator<Key> operator++() {
+    // prefix
+    this->_next();
+    return *this;
+  }
+
+  unordered_set_iterator<Key> operator++(int) {
+    // postfix
+    unordered_set_iterator<Key> x = *this;
+    this->_next();
+    return x;
+  }
+
+  // private:
+  void _next() {
+    if (this->link && this->link->next) {
+      this->link = this->link->next;
+      return;
+    }
+    while (true) {
+      if (this->slen < STACK_SIZE) {
+        bool is_any = false;
+        for (int i = this->istack[this->slen - 1]; i < (1 << BITS_BRANCH);
+             i++) {
+          if (this->bstack[this->slen - 1]->branches[i]) {
+            this->istack[this->slen - 1] = i + 1;
+            this->istack[this->slen] = 0;
+            this->bstack[this->slen] =
+                this->bstack[this->slen - 1]->branches[i];
+            this->slen++;
+            is_any = true;
+            break;
+          }
+          this->istack[this->slen - 1]++;
+        }
+        if (!is_any) {
+          this->slen--;
+          if (this->slen == 0) {
+            this->link = nullptr;
+            return;
+          }
+        }
+      } else {
+        for (int i = this->istack[this->slen - 1]; i < (1 << BITS_BRANCH);
+             i++) {
+          if (this->bstack[this->slen - 1]->leaves[i]) {
+            this->istack[this->slen - 1] = i + 1;
+            this->link = this->bstack[this->slen - 1]->leaves[i];
+            return;
+          }
+        }
+        this->slen--;
+      }
+    }
+  }
+  unordered_set_branch_node<Key> *bstack[STACK_SIZE];
+  int istack[STACK_SIZE];
+  size_t slen;
+  unordered_set_link_node<Key> *link;
+};
+
+template <class Key> class unordered_set_branch_node {
+public:
+  // If true, this->leaves are null and this->branches are non-null;
+  // If false, this->leaves are non-null and this->branches are null.
+  unordered_set_branch_node<Key> *branches[1 << BITS_BRANCH];
+  unordered_set_link_node<Key> *leaves[1 << BITS_BRANCH];
+  size_t size;
+
+  unordered_set_branch_node() {
+    for (int i = 0; i < (1 << BITS_BRANCH); i++) {
+      this->leaves[i] = nullptr;
+      this->branches[i] = nullptr;
+    }
+    this->size = 0;
+  }
+
+  ~unordered_set_branch_node() { this->clear(); }
+
+  void clear() {
+    for (int i = 0; i < (1 << BITS_BRANCH); i++) {
+      if (this->branches[i]) {
+        delete this->branches[i];
+        this->branches[i] = nullptr;
+      }
+      if (leaves[i]) {
+        delete this->leaves[i];
+        this->leaves[i] = nullptr;
+      }
+      this->size = 0;
+    }
+  }
+};
+
+template <class Key> class unordered_set_link_node {
+public:
+  Key child;
+  // If true, this->next is null;
+  // If false, this->next is non-null.
+  unordered_set_link_node<Key> *next;
+};
+
+template <class Key>
+bool operator==(unordered_set_iterator<Key> lhs,
+                unordered_set_iterator<Key> rhs) {
+  if (!lhs.link) {
+    return (rhs.link == nullptr);
+  }
+  return lhs.link == rhs.link;
+}
+
+template <class Key>
+bool operator!=(unordered_set_iterator<Key> lhs,
+                unordered_set_iterator<Key> rhs) {
+  if (!lhs.link) {
+    return (rhs.link != nullptr);
+  }
+  return lhs.link != rhs.link;
+}
+
+template <class Key> class unordered_set {
+public:
+  typedef Key key_type;
+  typedef Key value_type;
+  typedef value_type &reference;
+  typedef const value_type &const_reference;
+  typedef value_type *pointer;
+  typedef const value_type *const_pointer;
+  typedef unordered_set_iterator<Key> iterator;
+
+  unordered_set() { this->tree = unordered_set_branch_node<Key>(); }
+
+  ~unordered_set() {};
+
+  iterator begin() { return iterator(&(this->tree)); }
+
+  iterator end() { return iterator(); }
+
+  pair<iterator, bool> insert(const value_type &kv) {
+    unordered_set_branch_node<Key> *bstack[STACK_SIZE];
+    int istack[STACK_SIZE];
+    bstack[0] = &this->tree;
+
+    {
+      size_t h = hash<Key>{}(kv.first);
+      h &= (1 << BITS_HASH) - 1;
+      for (int i = BITS_BRANCH; i < BITS_HASH; i += BITS_BRANCH) {
+        istack[(i / BITS_BRANCH) - 1] = h & ((1 << BITS_BRANCH) - 1);
+        h >>= BITS_BRANCH;
+      }
+      istack[STACK_SIZE - 1] = h;
+    }
+    for (size_t i = 1; i < STACK_SIZE; i++) {
+      unordered_set_branch_node<Key> *&child =
+          bstack[i - 1]->branches[istack[i - 1]];
+      if (child == nullptr) {
+        child = new unordered_set_branch_node<Key>();
+      }
+      bstack[i] = child;
+    }
+    int ilast = istack[STACK_SIZE - 1];
+    unordered_set_branch_node<Key> *blast = bstack[STACK_SIZE - 1];
+    if (blast->leaves[ilast] == nullptr) {
+      blast->leaves[ilast] =
+          new unordered_set_link_node<Key>{{kv.first, kv.second}, nullptr};
+      for (unordered_set_branch_node<Key> *branch : bstack) {
+        branch->size++;
+      }
+      return {iterator(bstack, istack, blast->leaves[ilast]), true};
+    }
+    unordered_set_link_node<Key> *link = blast->leaves[ilast];
+    while (true) {
+      if (link->child.first == kv.first) {
+        return {iterator(bstack, istack, link), false};
+      }
+      if (link->next == nullptr) {
+        link->next =
+            new unordered_set_link_node<Key>{{kv.first, kv.second}, nullptr};
+        for (unordered_set_branch_node<Key> *branch : bstack) {
+          branch->size++;
+        }
+        return {iterator(bstack, istack, link->next), true};
+      }
+      link = link->next;
+    }
+  }
+
+  iterator find(const Key &key) {
+    unordered_set_branch_node<Key> *bstack[STACK_SIZE];
+    int istack[STACK_SIZE];
+    bstack[0] = &this->tree;
+
+    {
+      size_t h = hash<Key>{}(key);
+      h &= (1 << BITS_HASH) - 1;
+      for (int i = BITS_BRANCH; i < BITS_HASH; i += BITS_BRANCH) {
+        istack[(i / BITS_BRANCH) - 1] = h & ((1 << BITS_BRANCH) - 1);
+        h >>= BITS_BRANCH;
+      }
+      istack[STACK_SIZE - 1] = h;
+    }
+    for (size_t i = 1; i < STACK_SIZE; i++) {
+      unordered_set_branch_node<Key> *&child =
+          bstack[i - 1]->branches[istack[i - 1]];
+      if (child == nullptr) {
+        return this->end();
+      }
+      bstack[i] = child;
+    }
+    int ilast = istack[STACK_SIZE - 1];
+    unordered_set_branch_node<Key> *blast = bstack[STACK_SIZE - 1];
+    if (blast->leaves[ilast] == nullptr) {
+      return this->end();
+    }
+    unordered_set_link_node<Key> *link = blast->leaves[ilast];
+    while (true) {
+      if (link->child.first == key) {
+        return iterator(bstack, istack, link);
+      }
+      if (link->next == nullptr) {
+        return this->end();
+      }
+      link = link->next;
+    }
+  }
+
+  iterator erase(iterator pos) {
+    if (!pos.link) {
+      error(1, 0, "unordered_set::erase(): Argument error");
+      abort();
+    }
+    iterator eit = pos++;
+    unordered_set_link_node<Key> *link =
+        eit.bstack[STACK_SIZE - 1]->leaves[eit.istack[STACK_SIZE - 1]];
+    if (link == eit.link) {
+      unordered_set_link_node<Key> *tail = link->next;
+      delete link;
+      eit.bstack[STACK_SIZE - 1]->leaves[eit.istack[STACK_SIZE - 1]] = tail;
+    } else {
+      while (true) {
+        if (link->next == eit.link) {
+          unordered_set_link_node<Key> *tail = link->next->next;
+          delete link->next;
+          link->next = tail;
+          break;
+        }
+        link = link->next;
+      }
+    }
+    for (int i = STACK_SIZE - 1; i > 0; i--) {
+      eit.bstack[i]->size--;
+      if (i > 0 && eit.bstack[i]->size == 0) {
+        delete eit.bstack[i - 1]->branches[eit.istack[i - 1]];
+        eit.bstack[i - 1]->branches[eit.istack[i - 1]] = nullptr;
+      }
+    }
+    eit.bstack[0]->size--;
+    return pos;
+  }
+
+  size_t size() { return this->tree.size; }
+
+  bool empty() { return this->tree.size == 0; }
+
+  void clear() { this->tree.clear(); }
+
+  // private:
+  unordered_set_branch_node<Key> tree;
+};
+
+#ifdef PRINT
+#include "debug.h"
+template <class Key> struct _print<unordered_set<Key>> {
+  void operator()(const unordered_set<Key> &x, int margin = 0) {
+    char *m = new char[margin + 1];
+    for (int i = 0; i < margin; i++) {
+      m[i] = ' ';
+    }
+    m[margin] = '\0';
+    printf("{\n");
+    printf("%s  .tree = ", m);
+    _print<unordered_set_branch_node<Key>>{}(x.tree, margin + 2);
+    putc('\n', stdout);
+    printf("%s}", m);
+    delete[] m;
+  }
+};
+
+template <class Key> struct _print<unordered_set_branch_node<Key>> {
+  void operator()(const unordered_set_branch_node<Key> &x, int margin = 0) {
+    char *m = new char[margin + 1];
+    for (int i = 0; i < margin; i++) {
+      m[i] = ' ';
+    }
+    m[margin] = '\0';
+    printf("{\n");
+    printf("%s  .branches = {\n", m);
+    for (int i = 0; i < (1 << BITS_BRANCH); i++) {
+      printf("%s    [%d] = ", m, i);
+      _print<unordered_set_branch_node<Key> *>{}(x.branches[i], margin + 4);
+      printf((i + 1 < (1 << BITS_BRANCH)) ? ",\n" : "\n");
+    }
+    printf("%s  },\n", m);
+    printf("%s  .leaves = {\n", m);
+    for (int i = 0; i < (1 << BITS_BRANCH); i++) {
+      printf("%s    [%d] = ", m, i);
+      _print<unordered_set_link_node<Key> *>{}(x.leaves[i], margin + 4);
+      printf((i + 1 < (1 << BITS_BRANCH)) ? ",\n" : "\n");
+    }
+    printf("%s  }\n", m);
+    printf("%s}", m);
+    delete[] m;
+  }
+};
+
+template <class Key> struct _print<unordered_set_link_node<Key>> {
+  void operator()(const unordered_set_link_node<Key> &x, int margin = 0) {
+    char *m = new char[margin + 1];
+    for (int i = 0; i < margin; i++) {
+      m[i] = ' ';
+    }
+    m[margin] = '\0';
+    printf("{\n");
+    printf("%s  .child = ", m);
+    _print<Key>{}(x.child, margin + 2);
+    printf(",\n");
+    printf("%s  .next = ", m);
+    _print<unordered_set_link_node<Key> *>{}(x.next, margin + 2);
+    printf("\n");
+    printf("%s}", m);
+    delete[] m;
+  }
+};
+#endif
+
+#endif
