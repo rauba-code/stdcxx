@@ -14,6 +14,14 @@ public:
   // typedef reverse_iterator<iterator> reverse_iterator;
 
   vector();
+  explicit vector(size_t count) {
+    this->_ptr = nullptr;
+    this->_size = 0;
+    this->_grow(count);
+    for (int i = 0; i < count; i++) {
+      this->_ptr[i] = T{};
+    }
+  }
   ~vector();
   void push_back(const T &);
 
@@ -21,6 +29,9 @@ public:
   iterator end();
 
   iterator insert(const_iterator pos, const T &value);
+
+  iterator erase(const_iterator position);
+  iterator erase(const_iterator first, const_iterator last);
 
   size_t size();
 
@@ -98,5 +109,33 @@ typename vector<T>::iterator vector<T>::insert(const_iterator pos,
 }
 
 template <class T> size_t vector<T>::size() { return this->_size; }
+
+template <class T>
+typename vector<T>::iterator vector<T>::erase(const_iterator position) {
+  const_iterator end = this->end();
+  const_iterator i = position, j = position;
+  i->~T();
+  j++;
+  while (j != end) {
+    const_cast<T&>(*i++) = static_cast<const T&&>(*j++);
+  }
+  this->_size--;
+  return const_cast<T*>(position);
+}
+
+template <class T>
+typename vector<T>::iterator vector<T>::erase(const_iterator first,
+                                              const_iterator last) {
+  const_iterator end = this->end();
+  const_iterator i = first, j = first;
+  while (j != last) {
+    j++->~T();
+    this->_size--;
+  }
+  while (j != end) {
+    const_cast<T&>(*i++) = static_cast<const T&&>(*j++);
+  }
+  return const_cast<T*>(first);
+}
 
 #endif

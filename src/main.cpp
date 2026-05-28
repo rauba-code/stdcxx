@@ -66,7 +66,7 @@ void umap_test() {
   //_print<unordered_map<uint, uint>>{}(umap);
   putc('\n', stdout);
   do {
-    //printf("delete %d\n", k);
+    // printf("delete %d\n", k);
     unordered_map_iterator<uint, uint> delit = umap.find(k);
     if (delit == umap.end()) {
       error(1, 0, "find(%d) failed", k);
@@ -92,6 +92,16 @@ void umap_test() {
   }
   printf("\ncksum = %d\n", cksum);
   printf("size = %zu\n", umap.size());
+}
+
+struct triangle_t {
+  int len_a;
+  int len_b;
+  double len_hypot;
+};
+
+bool my_pred(const int &x) {
+    return x % 3 == 1;
 }
 
 int main() {
@@ -151,4 +161,30 @@ int main() {
   putc('\n', stdout);
   printf("size: %zu\n", umap.size());
   umap_test();
+
+  vector<triangle_t> trg(17);
+
+  vector<int> vec;
+  for (auto i : A) {
+    vec.push_back(i);
+    printf("%d ", i);
+  }
+  putc('\n', stdout);
+  vec.erase(remove_if(vec.begin(), vec.end(), my_pred), vec.end());
+  for (auto i : vec) {
+    printf("%d ", i);
+  }
+  putc('\n', stdout);
+  auto it = vec.begin();
+  while (it != vec.end()) {
+    if (*it % 5 == 2) {
+        it = vec.erase(it);
+    } else {
+        it++;
+    }
+  }
+  for (auto i : vec) {
+    printf("%d ", i);
+  }
+  putc('\n', stdout);
 }
