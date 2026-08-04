@@ -94,15 +94,80 @@ void umap_test() {
   printf("size = %zu\n", umap.size());
 }
 
+void set_test() {
+  typedef unsigned int uint;
+  const uint MOD = 131071; // any prime number
+  const uint CP = 110503;   // any prime number
+  const uint CM = 1279;     // any prime number
+  //  MOD * CM < 2^32
+  set<uint> set;
+  uint i = 0;
+  uint k = 0;
+  do {
+    // printf("==============%d\n", k);
+    set.insert(k);
+    // if (!set.insert(k)) {
+    //   error(1, 0, "set<int>::insert(%d) failed\n", k);
+    //   abort();
+    // }
+    k += CP;
+    k %= MOD;
+    i++;
+  } while (k != 0);
+  printf("cycled over %d numbers\n", i);
+  puts("veryfing integrity...");
+  if (!set._verify()) {
+    _print<::set<uint>>{}(set);
+    error(1, 0, "RB verification of set<int> failed after inserting %d\n", k);
+    abort();
+  }
+  printf("size = %zu\n", set.size());
+  i = 0;
+  k = 1;
+  //_print<set<uint>>{}(set);
+  putc('\n', stdout);
+  do {
+    // printf("delete %d\n", k);
+    set_iterator<uint> delit = set.find(k);
+    if (delit == set.end()) {
+      error(1, 0, "find(%d) failed", k);
+      abort();
+    }
+    set.erase(delit);
+    if (i % 100 == 0 && !set._verify()) {
+      _print<::set<uint>>{}(set);
+      error(1, 0, "RB verification of set<int> failed after deleting %d\n", k);
+      abort();
+    }
+    k *= CM;
+    k %= MOD;
+    i++;
+  } while (k != 1);
+  printf("erased %d numbers\n", i);
+  i = 0;
+  int cksum = 1337; // any number
+  for (uint p : set) {
+    if (i < 100) {
+      printf("%d ", p);
+    }
+    cksum *= CM;
+    cksum %= MOD;
+    cksum += p;
+    cksum %= MOD;
+    i++;
+  }
+  printf("\ncksum = %d\n", cksum);
+  printf("size = %zu\n", set.size());
+  puts("done");
+}
+
 struct triangle_t {
   int len_a;
   int len_b;
   double len_hypot;
 };
 
-bool my_pred(const int &x) {
-    return x % 3 == 1;
-}
+bool my_pred(const int &x) { return x % 3 == 1; }
 
 int main() {
   vector<string> duomenys;
@@ -133,7 +198,7 @@ int main() {
   for (const string &x : duomenys) {
     umap.insert({x, hash<string>{}(x)});
   }
-  _print<unordered_map<string, size_t>>{}(umap);
+  //_print<unordered_map<string, size_t>>{}(umap);
   putc('\n', stdout);
   unordered_map<size_t, size_t> umap2;
   umap2[31415] = hash<size_t>{}(31415);
@@ -157,7 +222,7 @@ int main() {
   _print<pair<string, size_t>>{}(*umap.find("lorem ipsum dolor sit amet"));
   putc('\n', stdout);
   umap.clear();
-  _print<unordered_map<string, size_t>>{}(umap);
+  //_print<unordered_map<string, size_t>>{}(umap);
   putc('\n', stdout);
   printf("size: %zu\n", umap.size());
   umap_test();
@@ -176,15 +241,18 @@ int main() {
   }
   putc('\n', stdout);
   auto it = vec.begin();
-  while (it != vec.end()) {
+  auto end = vec.end();
+  while (it != end) {
     if (*it % 5 == 2) {
-        it = vec.erase(it);
+      end = remove(vec.begin(), end, *it);
     } else {
-        it++;
+      it++;
     }
   }
   for (auto i : vec) {
     printf("%d ", i);
   }
   putc('\n', stdout);
+  puts("set_test:");
+  set_test();
 }

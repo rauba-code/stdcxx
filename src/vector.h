@@ -25,17 +25,17 @@ public:
   ~vector();
   void push_back(const T &);
 
-  iterator begin();
-  iterator end();
+  iterator begin() const;
+  iterator end() const;
 
   iterator insert(const_iterator pos, const T &value);
 
   iterator erase(const_iterator position);
   iterator erase(const_iterator first, const_iterator last);
 
-  size_t size();
+  size_t size() const;
 
-  value_type &operator[](size_t index);
+  value_type &operator[](size_t index) const;
 
 private:
   size_t _size;
@@ -45,7 +45,7 @@ private:
 };
 
 template <class T>
-typename vector<T>::value_type &vector<T>::operator[](size_t index) {
+typename vector<T>::value_type &vector<T>::operator[](size_t index) const {
   return this->_ptr[index];
 }
 
@@ -83,11 +83,11 @@ template <class T> void vector<T>::push_back(const T &a) {
   this->_ptr[this->_size - 1] = a;
 }
 
-template <class T> typename vector<T>::iterator vector<T>::begin() {
+template <class T> typename vector<T>::iterator vector<T>::begin() const {
   return this->_ptr;
 }
 
-template <class T> typename vector<T>::iterator vector<T>::end() {
+template <class T> typename vector<T>::iterator vector<T>::end() const {
   return this->_ptr + this->_size;
 }
 
@@ -108,7 +108,7 @@ typename vector<T>::iterator vector<T>::insert(const_iterator pos,
   return i;
 }
 
-template <class T> size_t vector<T>::size() { return this->_size; }
+template <class T> size_t vector<T>::size() const { return this->_size; }
 
 template <class T>
 typename vector<T>::iterator vector<T>::erase(const_iterator position) {
@@ -117,10 +117,10 @@ typename vector<T>::iterator vector<T>::erase(const_iterator position) {
   i->~T();
   j++;
   while (j != end) {
-    const_cast<T&>(*i++) = static_cast<const T&&>(*j++);
+    const_cast<T &>(*i++) = static_cast<const T &&>(*j++);
   }
   this->_size--;
-  return const_cast<T*>(position);
+  return const_cast<T *>(position);
 }
 
 template <class T>
@@ -133,9 +133,9 @@ typename vector<T>::iterator vector<T>::erase(const_iterator first,
     this->_size--;
   }
   while (j != end) {
-    const_cast<T&>(*i++) = static_cast<const T&&>(*j++);
+    const_cast<T &>(*i++) = static_cast<const T &&>(*j++);
   }
-  return const_cast<T*>(first);
+  return const_cast<T *>(first);
 }
 
 #endif
